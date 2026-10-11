@@ -364,7 +364,11 @@ export default function CompressPDF() {
       let compressedBlob = null;
 
       try {
-        const response = await fetch("/api/pdf/compress", {
+        const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "")
+          .trim()
+          .replace(/\/+$/, "")
+          .replace(/\/api$/i, "");
+        const response = await fetch(`${apiBaseUrl}/api/pdf/compress`, {
           method: "POST",
           body: formData,
         });

@@ -115,13 +115,22 @@ function Spinner({ className = "w-4 h-4 text-white" }) {
   );
 }
 
+const DEFAULT_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "")
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/api$/i, "");
+
 export default function AuthModal({
   isOpen = false,
   initialMode = "login", // "login" | "signup"
   onClose,
   onSuccess,
-  apiBaseUrl = "", // Set to your Express backend URL, e.g., "http://localhost:5000" or empty string if proxied
+  apiBaseUrl = DEFAULT_API_BASE_URL, // Set to your Express backend URL, e.g., "http://localhost:5000" or empty string if proxied
 }) {
+  const resolvedApiBaseUrl = apiBaseUrl
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
   const [mode, setMode] = useState(initialMode); // "login" | "signup"
   const [formData, setFormData] = useState({
     name: "",
@@ -213,7 +222,7 @@ export default function AuthModal({
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/auth/google`, {
+      const response = await fetch(`${resolvedApiBaseUrl}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: googleCredential }),
@@ -299,8 +308,8 @@ export default function AuthModal({
     try {
       const endpoint =
         mode === "login"
-          ? `${apiBaseUrl}/api/auth/login`
-          : `${apiBaseUrl}/api/auth/signup`;
+          ? `${resolvedApiBaseUrl}/api/auth/login`
+          : `${resolvedApiBaseUrl}/api/auth/signup`;
 
       const payload =
         mode === "login"
@@ -319,7 +328,7 @@ export default function AuthModal({
 
       const data = await response.json().catch(() => null);
 
-      if (!response.ok) {
+      if (!response.ok || data?.success === false) {
         throw new Error(
           data?.message ||
             data?.error ||
@@ -329,13 +338,27 @@ export default function AuthModal({
         );
       }
 
-      // Successful authentication: save token if provided
-      if (data?.token) {
-        localStorage.setItem("token", data.token);
+      // If signup succeeds without returning a JWT token, prompt user to sign in
+      // instead of navigating to an authenticated dashboard without a valid token.
+      if (mode === "signup" && !data?.token) {
+        setMode("login");
+        setFormData((prev) => ({
+          ...prev,
+          password: "",
+          confirmPassword: "",
+        }));
+        setSuccessMsg("Account created successfully! Please sign in.");
+        return;
       }
-      if (data?.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
+
+      if (!data?.token || !data?.user) {
+        throw new Error(
+          "Authentication succeeded, but no valid session token was returned."
+        );
       }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
       setSuccessMsg(
         mode === "login" ? "Signed in successfully!" : "Account created successfully!"

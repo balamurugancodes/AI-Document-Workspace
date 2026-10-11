@@ -61,7 +61,11 @@ async function loadPDFJS() {
 }
 
 // ── Real Backend AI Request Dispatcher ───────────────────────────────────────
-const AI_API_ENDPOINT = "/api/ai/analyze";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "")
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/api$/i, "");
+const AI_API_ENDPOINT = `${API_BASE_URL}/api/ai/analyze`;
 
 async function requestBackendAI({ action, prompt, documentText, fileName, pageCount, chatHistory }) {
   const token = localStorage.getItem("token");
